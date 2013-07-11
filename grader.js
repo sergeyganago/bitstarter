@@ -27,7 +27,6 @@ var cheerio = require('cheerio');
 var rest = require('restler');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
-var URL_DEFAULT = "http://google.com";
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -46,7 +45,26 @@ var loadChecks = function(checksfile) {
     return JSON.parse(fs.readFileSync(checksfile));
 };
 
-var checkHtmlFile = function(htmlfile, checksfile, url) {
+var downloadFile = function(url, checksfile) {
+    var file = "temp.html";
+    var out = {};
+    if (url) {
+        //console.log('Downloading URL...');
+        rest.get(url).once('complete', function(result) {
+            //console.log(' ok.');
+	    //console.log(checksfile);
+	    //console.log(file);
+            fs.writeFileSync(file, result);
+	    out =  JSON.stringify(checkHtmlFile(file, checksfile), null, 4);
+	    console.log(out);
+	    //return out;
+        });
+    };
+    return out;
+};
+
+var checkHtmlFile = function(htmlfile, checksfile) {
+    //console.log('here');
     $ = cheerioHtmlFile(htmlfile);
     var checks = loadChecks(checksfile).sort();
     var out = {};
@@ -69,9 +87,14 @@ if(require.main == module) {
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
 	.option('-u, --url <url_address>', 'URL to graded page')
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks, program.url);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+    if (program.url) {
+	var checkJson = downloadFile(program.url, program.checks);
+    }
+    else {
+	var checkJson = checkHtmlFile(program.file, program.checks);
+	var outJson = JSON.stringify(checkJson, null, 4);
+	console.log(outJson);
+    }
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
